@@ -54,6 +54,7 @@ final class UuidCache {
 
     static void put(String username, java.util.UUID uuid) {
         cache.put(key(username), new Entry(uuid, System.currentTimeMillis()));
+        save();
     }
 
     private static String key(String username) {

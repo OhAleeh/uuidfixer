@@ -27,6 +27,9 @@ java {
 	def javaVersion = JavaVersion.toVersion(project.java_version)
 	sourceCompatibility = javaVersion
 	targetCompatibility = javaVersion
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(project.java_version.toInteger())
+	}
 	withSourcesJar()
 }
 
