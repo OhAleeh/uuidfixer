@@ -39,6 +39,7 @@ public final class UuidLookupService {
             } catch (Exception e) {
                 UuidFixerMod.LOGGER.warn("[uuidfixer] lookup failed for '{}', using previously verified UUID if available: {}", username, e.toString());
                 // No new cache entry is written on temporary failure.
+                PlayerData.warnIfDuplicateRisk(username, "the Mojang API lookup failed");
                 return null;
             }
 
@@ -49,6 +50,7 @@ public final class UuidLookupService {
                     return existing;
                 }
                 UuidFixerMod.LOGGER.info("[uuidfixer] Mojang API returned 404/204 for '{}'; name not found, using offline UUID", username);
+                PlayerData.warnIfDuplicateRisk(username, "Mojang reported the name as unknown (possible rate limit)");
                 UuidCache.put(username, null);
                 return null;
             }
@@ -62,6 +64,34 @@ public final class UuidLookupService {
             UuidCache.put(username, result.uuid);
             return result.uuid;
         }
+    }
+
+    /**
+     * Queries the Mojang API ignoring the cache (never overwrites a manual
+     * override). Used by the /uuidfixer check command.
+     */
+    public static CheckResult check(String username) {
+        FetchResult result;
+        try {
+            result = fetchFromMojang(username);
+        } catch (Exception e) {
+            return new CheckResult(null, false, false, e.toString());
+        }
+        UuidCache.Entry manualEntry = UuidCache.peek(username);
+        boolean manualKept = manualEntry != null && manualEntry.uuid != null && Boolean.TRUE.equals(manualEntry.manual);
+        if (result.notFound) {
+            return new CheckResult(null, true, manualKept, null);
+        }
+        if (result.uuid == null) {
+            return new CheckResult(null, false, manualKept, "Mojang returned an unusable response");
+        }
+        if (!manualKept) {
+            UuidCache.put(username, result.uuid);
+        }
+        return new CheckResult(result.uuid, false, manualKept, null);
+    }
+
+    public record CheckResult(java.util.UUID uuid, boolean notFound, boolean manualPreserved, String error) {
     }
 
     private static FetchResult fetchFromMojang(String username) throws Exception {

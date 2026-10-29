@@ -12,13 +12,18 @@ public class UuidFixerMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        ServerLifecycleEvents.SERVER_STARTING.register(server -> UuidCache.load());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            ServerHolder.clear();
+            UuidCache.load();
+        });
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> UuidCache.save());
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            ServerHolder.set(server);
             if (server instanceof DedicatedServer dedicated && dedicated.getProperties().onlineMode) {
                 LOGGER.warn("[uuidfixer] the server is running with online-mode=true; this mod has no effect. Set online-mode=false in server.properties to use it.");
             }
         });
+        UuidFixerCommands.register();
         LOGGER.info("[{}] loaded", MOD_ID);
     }
 }

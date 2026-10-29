@@ -29,10 +29,19 @@ final class UuidCache {
     static final class Entry {
         final java.util.UUID uuid;
         final long timestamp;
+        final Boolean manual; // nullable for entries written before this field existed
         Entry(java.util.UUID uuid, long timestamp) {
+            this(uuid, timestamp, Boolean.FALSE);
+        }
+        Entry(java.util.UUID uuid, long timestamp, Boolean manual) {
             this.uuid = uuid;
             this.timestamp = timestamp;
+            this.manual = manual == null ? Boolean.FALSE : manual;
         }
+    }
+
+    static Entry peek(String username) {
+        return cache.get(key(username));
     }
 
     static java.util.UUID get(String username) {
@@ -55,6 +64,40 @@ final class UuidCache {
     static void put(String username, java.util.UUID uuid) {
         cache.put(key(username), new Entry(uuid, System.currentTimeMillis()));
         save();
+    }
+
+    static void putManual(String username, java.util.UUID uuid) {
+        cache.put(key(username), new Entry(uuid, System.currentTimeMillis(), Boolean.TRUE));
+        save();
+    }
+
+    static boolean remove(String username) {
+        return cache.remove(key(username)) != null;
+    }
+
+    static void reload() {
+        cache.clear();
+        load();
+    }
+
+    static int size() {
+        return cache.size();
+    }
+
+    static int manualCount() {
+        int n = 0;
+        for (Entry e : cache.values()) {
+            if (e.uuid != null && Boolean.TRUE.equals(e.manual)) n++;
+        }
+        return n;
+    }
+
+    static int negativeCount() {
+        int n = 0;
+        for (Entry e : cache.values()) {
+            if (e.uuid == null) n++;
+        }
+        return n;
     }
 
     private static String key(String username) {
