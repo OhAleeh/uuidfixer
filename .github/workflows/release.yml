@@ -1,14 +1,14 @@
 name: release
 
+# Publishes a GitHub release for any pushed tag starting with "v".
+# The displayed release name/version is taken from mod_version in
+# gradle.properties (which may contain spaces, e.g. "2.0.1 - 26.3"),
+# so tags must stay space-free (e.g. v2.0.1-26.3).
+
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version without the v prefix (e.g. 26.3)'
-        required: true
 
 permissions:
   contents: write
@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -29,16 +29,13 @@ jobs:
       - name: extract version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          fi
+          version=$(grep '^mod_version=' gradle.properties | cut -d= -f2-)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: build
         run: |
           chmod +x gradlew
-          ./gradlew build -Pmod_version=${{ steps.version.outputs.version }}
+          ./gradlew build
 
       - name: collect release artifact
         run: |
@@ -49,7 +46,7 @@ jobs:
       - name: create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
           name: v${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: release-artifacts/*.jar
